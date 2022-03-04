@@ -9,6 +9,15 @@ class Robot:
         self.jtype = params[2]
         self.pgraph = params[3]
 
+        self.x = np.zeros((3,sum(self.jdof)))
+        self.x[0,:] = np.ones(sum(self.jdof))
+
+        self.y = np.zeros((3,sum(self.jdof)))
+        self.y[1,:] = np.ones(sum(self.jdof))
+
+        self.z = np.zeros((3,sum(self.jdof)))
+        self.z[2,:] = np.ones(sum(self.jdof))
+
     def Rot(self,w,th):
         '''
         w: axis of rotation
@@ -38,18 +47,8 @@ class Robot:
         return tips, k
 
     def robotModel(self):
-        x = np.zeros((3,sum(self.jdof)))
-        x[0,:] = np.ones(sum(self.jdof))
-
-        y = np.zeros((3,sum(self.jdof)))
-        y[1,:] = np.ones(sum(self.jdof))
-
-        z = np.zeros((3,sum(self.jdof)))
-        z[2,:] = np.ones(sum(self.jdof))
-
         tips, k = self.tipBodies()
         
-
         ################################
         PHI = np.eye(6*k)
         PHI_t = np.zeros(shape=(6*len(tips), 6*k))
@@ -57,7 +56,7 @@ class Robot:
         FT = np.zeros(shape=(6*len(tips)))
 
         ################################
-        V=VD=A=B=F = np.zeros(6*k)
+        V=VD=A=B=F= np.zeros(6*k)
         M = np.eye(6*k) #Mass matrix
         H = np.zeros(shape=(6*k, len(self.jdof)))
 
@@ -69,14 +68,14 @@ class Robot:
 
         link_len = np.tile([1, 0, 0], (k+1,1))
         link_len = 0.2 * link_len
-        lci = 0.5*link_len
+        lci = 0.5 * link_len
         hi = np.tile([0, 0, 1], (k,1))
         h = np.zeros(shape=np.shape(hi))
 
         for i in range(len(self.jdof)):
-            h[i][0:3] = hi[i][0]*x[:,i] + hi[i][1]*y[:,i] + hi[i][2]*z[:,i]
+            h[i][0:3] = hi[i][0]*self.x[:,i] + hi[i][1]*self.y[:,i] + hi[i][2]*self.z[:,i]
 
-        return h, TH, link_len, x, y, z, lci
+        return h, TH, link_len, lci
 
     def updateCoor(self):
         uc = [] #update coordinates
@@ -87,11 +86,7 @@ class Robot:
         h = params[0]
         TH = params[1]
         li = params[2]
-        lci = params[6]
-        
-        x = params[3]
-        y = params[4]
-        z = params[5]
+        lci = params[3]
 
         count = 0
 
@@ -102,9 +97,9 @@ class Robot:
                     uca = np.asarray(uc)
                     if(self.jtype[c]==1):
                         R = self.Rot(h[c,0:3],TH[c])
-                        x[:,uca] = np.dot(R,x[:,uca])
-                        y[:,uca] = np.dot(R,y[:,uca])
-                        z[:,uca] = np.dot(R,z[:,uca])
+                        self.x[:,uca] = np.dot(R,self.x[:,uca])
+                        self.y[:,uca] = np.dot(R,self.y[:,uca])
+                        self.z[:,uca] = np.dot(R,self.z[:,uca])
                     count +=1
                     if(self.jtype[c]==0):
                         ind = n1
@@ -128,8 +123,8 @@ class Robot:
                 ii = ii+self.jdof[cnt] #At the seperation node there is no increment
                 if not self.jdof[cnt] == 0:
                     ind = ii
-                    link[i,0:3] = li[i,0] * x[:,ind] + li[i,1] * y[:,ind] + li[i,2] * z[:,ind] 
-                    link_c[i,:] = lci[i,0] * x[:,ind] + lci[i,1] *y[:,ind] + lci[i,2] * z[:,ind]
+                    link[i,0:3] = li[i,0] * self.x[:,ind] + li[i,1] * self.y[:,ind] + li[i,2] * self.z[:,ind] 
+                    link_c[i,:] = lci[i,0] * self.x[:,ind] + lci[i,1] * self.y[:,ind] + lci[i,2] * self.z[:,ind]
                     cnt +=1
                 else:
                     #Jumps the seperation node and link update respect to previous node
@@ -149,8 +144,10 @@ def main():
 
     pgraph = np.array([1,2,3,4,5]) # Graph vector
     jdof = np.array([1,1,1,1,1]) # Joints degree of freedom
+    
     #TODO: Design translational or rotational value assign later.
     jtype = np.array([1,1,1,1,1]) # For rotational joint:1, translation:0
+
     n = np.sum(jdof) #Total degree of freedom the body
 
     params = []
