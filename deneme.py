@@ -58,7 +58,6 @@ class Robot:
 
         ################################
         V=VD=A=B=F = np.zeros(6*k)
-        M = np.eye(6*k) #Mass matrix
         H = np.zeros(shape=(6*k, len(self.jdof)))
 
         #################################
@@ -76,7 +75,7 @@ class Robot:
         for i in range(len(self.jdof)):
             h[i][0:3] = hi[i][0]*x[:,i] + hi[i][1]*y[:,i] + hi[i][2]*z[:,i]
 
-        return h, TH, link_len, x, y, z, lci
+        return h, TH, link_len, x, y, z, lci, hi
 
     def updateCoor(self):
         uc = [] #update coordinates
@@ -84,6 +83,7 @@ class Robot:
         n1 = k + len(tips)
 
         params = self.robotModel()
+        hi = params[7]
         h = params[0]
         TH = params[1]
         li = params[2]
@@ -94,48 +94,143 @@ class Robot:
         z = params[5]
 
         count = 0
+        jt = np.argwhere(self.pgraph==np.max(self.pgraph))
 
-        for i in reversed(range(0,k)):
-            if(self.jdof[i]>0): #Is it seperation node or not?
-                for c in reversed(range(self.jdof[i]-count+1,self.n-count)):
-                    uc.append(c)
+        for ind in reversed(range(0,jt[0][0])):
+            if(self.jdof[ind]>0): #Is it seperation node or not?
+                for i in reversed(range(self.n-self.jdof[ind]-count,self.n-count)):
+                    uc.append(i)
                     uca = np.asarray(uc)
-                    if(self.jtype[c]==1):
-                        R = self.Rot(h[c,0:3],TH[c])
+                    if(self.jtype[i]==1):
+                        R = self.Rot(h[i,0:3],TH[i])
                         x[:,uca] = np.dot(R,x[:,uca])
                         y[:,uca] = np.dot(R,y[:,uca])
                         z[:,uca] = np.dot(R,z[:,uca])
                     count +=1
-                    if(self.jtype[c]==0):
-                        ind = n1
-                        li[ind,:] = li[ind,:] + h[c,:] * TH[c]
+                    if(self.jtype[i]==0):
+                        ind1 = n1
+                        li[ind1,:] = li[ind1,:] + h[i,:] * TH[i]
                 n1 -=1
-            if(self.jdof[i]==0):
+            if(self.jdof[ind]==0):
                 print("Seperation part!!!")
 
 
-        link = np.array(np.shape(li))
-        link_c = np.array(np.shape(lci))
+        link = np.zeros(np.shape(li))
+        link_c = np.zeros(np.shape(lci))
 
 
         ii = 0
         cnt = 0
-        for i in range(n1):
+        for i in range(k+len(tips)):
             if i==0:
-                link[i,:] = link[i,:]
+                link[i,:] = li[i,:]
                 link_c[i,:] = lci[i,:]
             else:
-                ii = ii+self.jdof[cnt] #At the seperation node there is no increment
+                ii = ii+self.jdof[cnt]-1 #At the seperation node there is no increment
                 if not self.jdof[cnt] == 0:
-                    ind = ii
-                    link[i,0:3] = li[i,0] * x[:,ind] + li[i,1] * y[:,ind] + li[i,2] * z[:,ind] 
-                    link_c[i,:] = lci[i,0] * x[:,ind] + lci[i,1] *y[:,ind] + lci[i,2] * z[:,ind]
+                    ind1 = ii
+                    link[i,0:3] = li[i,0] * x[:,ind1] + li[i,1] * y[:,ind1] + li[i,2] * z[:,ind1] 
+                    link_c[i,:] = lci[i,0] * x[:,ind1] + lci[i,1] *y[:,ind1] + lci[i,2] * z[:,ind1]
                     cnt +=1
                 else:
                     #Jumps the seperation node and link update respect to previous node
-                    jt = np.argwhere(self.pgraph==np.max(self.pgraph))
-                    print("tryy")
+                    jt = np.argwhere(self.pgraph==self.pgraph[cnt])
+                    ij = self.n - np.sum(self.jdof[jt[0][0],:]+1)
+                    ind1 = ij
+                    link[i,0:3] = li[i,0] * x[:,ind1] + li[i,1] * y[:,ind1] + li[i,2] * z[:,ind1] 
+                    link_c[i,:] = lci[i,0] * x[:,ind1] + lci[i,1] *y[:,ind1] + lci[i,2] * z[:,ind1]
+                    cnt +=1
+            i +=1
+
+        i=1
+        for i in range(self.n):
+            h[i][0:3] = hi[i][0]*x[:,i] + hi[i][1]*y[:,i] + hi[i][2]*z[:,i]
+            i +=1
+
+    def robotDynamics(self):
         
+        params = self.robotModel()
+        tips, k = self.tipBodies()
+
+        hi = params[7]
+        h = params[0]
+        TH = params[1]
+        li = params[2]
+        lci = params[6]
+        
+        x = params[3]
+        y = params[4]
+        z = params[5]
+
+        gr=9.81; #gravity
+        M = np.eye(6*k) #Mass matrix
+
+        m = np.ones(5) #masses
+        m = m* 0.17
+        I = np.array([[8.5e-6, 0, 0],[0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2), 0],[0, 0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2)],
+                    [8.5e-6, 0, 0],[0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2), 0],[0, 0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2)],
+                    [8.5e-6, 0, 0],[0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2), 0],[0, 0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2)],
+                    [8.5e-6, 0, 0],[0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2), 0],[0, 0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2)],
+                    [8.5e-6, 0, 0],[0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2), 0],[0, 0, float(5.72e-4)+np.power(np.linalg.norm(lci[0,0:3]),2)]])
+
+        for i in range (k):
+            M[6*i:6*i+3,6*i:6*i+3]=I[3*i:3*(i+1),0:3]
+            M[6*i+3:6*(i+1),6*i+3:6*(i+1)] =m[i]*M[6*i+3:6*(i+1),6*i+3:6*(i+1)]
+
+
+        #-------inertia similarity transformation-------------------
+        i,j = 0,0
+
+        for j in range(k):
+            
+
+
+
+    while j<=k
+
+        i=i+jdof(j); 
+        if jdof(j)==0
+            
+        else
+            R=[x(:,i) y(:,i) z(:,i)];
+            M(6*(j-1)+1:6*(j-1)+3,6*(j-1)+1:6*(j-1)+3)=R*I(3*(j-1)+1:3*(j-1)+3,1:3)*R';            
+        end
+        j=j+1;
+    end
+
+    %----------Link centers that have mass-----------
+    lm=zeros(sum(k),3); %links that have mass are selected
+
+    ii=1;
+    ij=2;
+    for i=1:size(t,2)-1
+        if (t(i+1)>t(i))
+            lm(ii,:)=lc(ij,:); % i=1 l_0,1
+            ii=ii+1;
+            ij=ij+1;
+        else
+            ft=find(tips==t(i));
+            if(~isempty(ft)&& t(i)~=0)
+                lm(ii,:)=lc(ij,:);
+                ij=ij+2;
+                ii=ii+1;            
+            end
+        end
+        ft=find(tips==t(i+1));
+        if(~isempty(ft)&& t(i+1)~=0 && ntips==1)
+            lm(ii,:)=lc(ij,:);
+            ij=ij+2;
+            ii=ii+1;            
+        end    
+        
+    end
+    
+
+    %changing every step----------------------------
+    for i=1:1:k
+        M(6*(i-1)+1:6*(i-1)+3,6*(i-1)+4:6*(i-1)+6)=m(i)*s_operator(lm(+i,1:3));
+        M(6*(i-1)+4:6*(i-1)+6,6*(i-1)+1:6*(i-1)+3)=-M(6*(i-1)+1:6*(i-1)+3,6*(i-1)+4:6*(i-1)+6);
+    end     
 
     def readURDF(self):
         robot = URDF.load('my_robot.urdf')
@@ -163,6 +258,7 @@ def main():
     Robot.tipBodies(Robot1)
     Robot.robotModel(Robot1)
     Robot.updateCoor(Robot1)
+    Robot.robotDynamics(Robot1)
     
     #TODO: It is not necassary for now
     #Robot.readURDF(Robot1)
