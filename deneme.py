@@ -147,10 +147,16 @@ class Robot:
             h[i][0:3] = hi[i][0]*x[:,i] + hi[i][1]*y[:,i] + hi[i][2]*z[:,i]
             i +=1
 
+        return link,link_c
+
     def robotDynamics(self):
         
         params = self.robotModel()
         tips, k = self.tipBodies()
+        link, link_c = self.updateCoor()
+
+        ntips = 1
+        #TODO: Emin degilim?
 
         hi = params[7]
         h = params[0]
@@ -182,51 +188,43 @@ class Robot:
         i,j = 0,0
 
         for j in range(k):
-            
+            i +=self.jdof[j]
+
+            if self.jdof[j]==0:
+                #TODO:????? Burası bos
+                pass
+            else:
+                R = np.array([x[:,i], y[:,i], z[:,i]])
+                M[6*j:6*j+3,6*j:6*j+3] = R * I[3*i:3*(i+1),0:3] * np.transpose(R)
 
 
+        #----------Link centers that have mass-----------
+        lm = np.zeros(np.sum(k),3) #links that have mass are selected
 
-    while j<=k
+        ii=0
+        ij=1
 
-        i=i+jdof(j); 
-        if jdof(j)==0
-            
-        else
-            R=[x(:,i) y(:,i) z(:,i)];
-            M(6*(j-1)+1:6*(j-1)+3,6*(j-1)+1:6*(j-1)+3)=R*I(3*(j-1)+1:3*(j-1)+3,1:3)*R';            
-        end
-        j=j+1;
-    end
+        for i in range(len(self.pgraph)-1):
+            if self.pgraph[i+1] > self.pgraph[i]:
+                lm[ii,:] = link_c[ij,:] #i=1 l_0,1
+                ii +=1
+                ij +=1
+            else:
+                ft = np.argwhere(tips==self.pgraph[i])
+                if (not ft.size == 0) and (not self.pgraph[i]==0):
+                    lm[ii,:] = link_c[ij,:] #i=1 l_0,1
+                    ii +=1
+                    ij +=2
 
-    %----------Link centers that have mass-----------
-    lm=zeros(sum(k),3); %links that have mass are selected
-
-    ii=1;
-    ij=2;
-    for i=1:size(t,2)-1
-        if (t(i+1)>t(i))
-            lm(ii,:)=lc(ij,:); % i=1 l_0,1
-            ii=ii+1;
-            ij=ij+1;
-        else
-            ft=find(tips==t(i));
-            if(~isempty(ft)&& t(i)~=0)
-                lm(ii,:)=lc(ij,:);
-                ij=ij+2;
-                ii=ii+1;            
-            end
-        end
-        ft=find(tips==t(i+1));
-        if(~isempty(ft)&& t(i+1)~=0 && ntips==1)
-            lm(ii,:)=lc(ij,:);
-            ij=ij+2;
-            ii=ii+1;            
-        end    
-        
-    end
+        ft = np.argwhere(tips==self.pgraph[i+1])
+        if (not ft.size == 0) and (not self.pgraph[i+1]==0) and (ntips==1):
+            lm[ii,:] = link_c[ij,:] #i=1 l_0,1
+            ii +=1
+            ij +=2  
     
 
-    %changing every step----------------------------
+    #changing every step----------------------------
+    
     for i=1:1:k
         M(6*(i-1)+1:6*(i-1)+3,6*(i-1)+4:6*(i-1)+6)=m(i)*s_operator(lm(+i,1:3));
         M(6*(i-1)+4:6*(i-1)+6,6*(i-1)+1:6*(i-1)+3)=-M(6*(i-1)+1:6*(i-1)+3,6*(i-1)+4:6*(i-1)+6);

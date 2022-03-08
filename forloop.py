@@ -6,6 +6,9 @@ M = np.eye(6*k) #Mass matrix
 m = np.ones(5) #masses
 m = m* 0.17
 
+pgraph = np.array([1,2,3,4,5])
+print(len(pgraph))
+
 i,j = 0,1
 
 link_len = np.tile([1, 0, 0], (k+1,1))
