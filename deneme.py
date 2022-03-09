@@ -50,11 +50,7 @@ class Robot:
         tips, k = self.tipBodies()
         
 
-        ################################
-        PHI = np.eye(6*k)
-        PHI_t = np.zeros(shape=(6*len(tips), 6*k))
-        PHI_td = np.zeros(shape=(6*len(tips), 6*k))
-        FT = np.zeros(shape=(6*len(tips)))
+
 
         ################################
         V=VD=A=B=F = np.zeros(6*k)
@@ -223,20 +219,89 @@ class Robot:
             ij +=2  
     
 
-    #changing every step----------------------------
+        #changing every step----------------------------
+        for i in range(k):
+            if len(lm[i,0:3])==3:
+                s_operator = np.array([[0,-lm[i,0:3][2],lm[i,0:3][1], 0],
+                                        [lm[i,0:3][2], 0, -lm[i,0:3][0]],
+                                        [-lm[i,0:3][1], lm[i,0:3][0], 0]])
+            else:
+                s_operator = 0
+            
+            M[6*i:6*i+3,6*i+3:6*(i+1)]= m[i] * s_operator
+            M[6*i+3:6*(i+1),6*i:6*i+3]=-M[6*i:6*i+3,6*i+3:6*(i+1)]
+     
+
+    def create_phi(self):
+        tips, k = self.tipBodies()
+        link, link_c = self.updateCoor()
+        maxt = 0
+        ntips = 1
+        ia = 1 #for bias accelerations
+        E = np.identity(6*k)
+        G = np.zeros(6*k,6*k)
+
+        ################################
+        PHI = np.eye(6*k)
+        PHIT = np.zeros(shape=(6*len(tips), 6*k))
+        PHITD = np.zeros(shape=(6*len(tips), 6*k))
+        FT = np.zeros(shape=(6*len(tips)))
+        
+        ind = 1
+        for i in range(len(self.pgraph)-1):
+            if self.pgraph[i+1] > self.pgraph[i]:
+                phi = np.identity(6)
+                ei_ = E[:,6*(self.pgraph[i]-1):6*(self.pgraph[i])]
+                ei = E[:,6*(self.pgraph[i+1]-1):6*(self.pgraph[i+1])]
+                
+                if len(link[ind,0:3])==3:
+                    s_operator = np.array([[0,-link[ind,0:3][2],link[ind,0:3][1], 0],
+                                            [link[ind,0:3][2], 0, -link[ind,0:3][0]],
+                                            [-link[ind,0:3][1], link[ind,0:3][0], 0]])
+                else:
+                    s_operator = 0
+
+                phi[0:3,3:6] = -s_operator
+                G = G+ei_*np.transpose(phi)*np.transpose(ei)
+            ind +=1
+
+        PHI = np.identity(6*k)
+        for i in range(k-1):
+            PHI = PHI + np.power(np.transpose(G),i)
+
+        Phib = np.zeros(6*k,6)
+        Phib[0:6,0:6] = np.identity(6)
+
+        if len(link[1,:])==3:
+            s_operator = np.array([[0,-link[1,:][2],link[1,:][1], 0],
+                                [link[1,:][2], 0, -link[1,:][0]],
+                                [-link[1,:][1], link[1,:][0], 0]])
+        else:
+            s_operator = 0
+
+        Phib[3:6,0:3] = -s_operator
+
+        for i in range(ntips):
+            ind1 = 6*(tips[i]-1)
+            PHIT[6*i:6*(i+1),ind1:ind1+6] = np.identity(6)
+            ind2 = tips[i] +i
+
+            if len(link[ind2,:])==3:
+                s_operator = np.array([[0,-link[ind2,:][2],link[ind2,:][1], 0],
+                                        [link[ind2,:][2], 0, -link[ind2,:][0]],
+                                        [-link[ind2,:][1], link[ind2,:][0], 0]])
+            else:
+                s_operator = 0
+
+            PHIT[6*i+3:6*(i+1),ind1:ind1+3] = -s_operator
+
     
-    for i=1:1:k
-        M(6*(i-1)+1:6*(i-1)+3,6*(i-1)+4:6*(i-1)+6)=m(i)*s_operator(lm(+i,1:3));
-        M(6*(i-1)+4:6*(i-1)+6,6*(i-1)+1:6*(i-1)+3)=-M(6*(i-1)+1:6*(i-1)+3,6*(i-1)+4:6*(i-1)+6);
-    end     
+
+
 
     def readURDF(self):
         robot = URDF.load('my_robot.urdf')
         print(robot.links)
-
-
-    #def create_phi(self):
-
 
 def main():
 
