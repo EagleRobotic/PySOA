@@ -48,13 +48,6 @@ class Robot:
         z[2,:] = np.ones(sum(self.jdof))
 
         tips, k = self.tipBodies()
-        
-
-
-
-        ################################
-        V=VD=A=B=F = np.zeros(6*k)
-        H = np.zeros(shape=(6*k, len(self.jdof)))
 
         #################################
         TH= np.zeros(shape=(np.sum(self.jdof)))
@@ -143,7 +136,7 @@ class Robot:
             h[i][0:3] = hi[i][0]*x[:,i] + hi[i][1]*y[:,i] + hi[i][2]*z[:,i]
             i +=1
 
-        return link,link_c
+        return link,link_c,h
 
     def robotDynamics(self):
         
@@ -164,7 +157,7 @@ class Robot:
         y = params[4]
         z = params[5]
 
-        gr=9.81; #gravity
+        
         M = np.eye(6*k) #Mass matrix
 
         m = np.ones(5) #masses
@@ -234,7 +227,7 @@ class Robot:
 
     def create_phi(self):
         tips, k = self.tipBodies()
-        link, link_c = self.updateCoor()
+        link, link_c, h = self.updateCoor()
         maxt = 0
         ntips = 1
         ia = 1 #for bias accelerations
@@ -246,6 +239,11 @@ class Robot:
         PHIT = np.zeros(shape=(6*len(tips), 6*k))
         PHITD = np.zeros(shape=(6*len(tips), 6*k))
         FT = np.zeros(shape=(6*len(tips)))
+        H = np.zeros(shape=(6*k, len(self.jdof)))
+    
+        ################################
+        V=VD=A=B=F = np.zeros(6*k)
+        gr=9.81; #gravity
         
         ind = 1
         for i in range(len(self.pgraph)-1):
@@ -295,7 +293,22 @@ class Robot:
 
             PHIT[6*i+3:6*(i+1),ind1:ind1+3] = -s_operator
 
-    
+        #H axes of motion matrix
+        count = 0
+        
+        ii =1
+        for i in range(k):
+            for ej in range(count,self.jdof[ii]+count):
+                if self.jtype[ej]==1:
+                    H[6*i:6*i+3,ej] = np.transpose(h[ej,0:3])
+                elif self.jtype==0:
+                    H[6*i+3:6*(i+1),ej] = np.transpose(h[ej,0:3])
+            if not self.jdof[ii]==0:
+                pass
+            count +=self.jdof[ii]
+            ii +=1
+
+        A[0:6] = [0,0,0,0,gr,0]
 
 
 
